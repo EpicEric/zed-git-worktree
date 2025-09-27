@@ -1,0 +1,19 @@
+id = "git-worktree"
+name = "Git Worktree"
+version = "0.0.1"
+schema_version = 1
+authors = ["Eric Rodrigues Pires <eric@eric.dev.br>"]
+description = "Git Worktree support for Zed"
+repository = "https://github.com/EpicEric/zed-git-worktree"
+
+[slash_commands.list]
+description = "list worktrees for the current project"
+requires_argument = false
+
+[slash_commands.add]
+description = "add a worktree to the current project"
+requires_argument = true
+
+[slash_commands.remove]
+description = "remove a worktree from the current project"
+requires_argument = true
