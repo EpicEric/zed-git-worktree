@@ -17,13 +17,23 @@ struct GitWorktree {
 struct GitWorktreeExtension;
 
 impl GitWorktreeExtension {
-    fn worktree_path_for_branch(&self, base_path: &str, branch: &str) -> Result<PathBuf> {
-        let path_prefix: OsString = base_path.to_owned().into();
-        let path_suffix: OsString = branch.replace('/', "-").replace('\\', "-").into();
-        Ok(PathBuf::from(path_prefix)
-            .parent()
-            .ok_or_else(|| "can't get worktree path from root path".to_string())?
-            .join(Path::new(&path_suffix)))
+    fn worktree_path_for_branch(
+        &self,
+        root_path: &str,
+        worktree_path_template: &str,
+        branch: &str,
+    ) -> Result<PathBuf> {
+        let root_path_os_string: OsString = root_path.to_owned().into();
+        let mut root_path = PathBuf::from(root_path_os_string);
+        let Some(repo) = root_path.components().last() else {
+            return Err("can't get worktree path from root path".to_string());
+        };
+        let worktree_path_os_string: OsString = worktree_path_template
+            .replace("${branch}", &branch.replace('/', "-").replace('\\', "-"))
+            .replace("${repo}", repo.as_os_str().to_string_lossy().as_ref())
+            .into();
+        root_path.push(Path::new(&worktree_path_os_string));
+        Ok(root_path)
     }
 }
 
@@ -112,8 +122,13 @@ impl GitWorktreeExtension {
             .collect())
     }
 
-    fn git_worktree_add(&self, base_path: &str, branch: &str) -> Result<PathBuf> {
-        let path = self.worktree_path_for_branch(base_path, branch)?;
+    fn git_worktree_add(
+        &self,
+        root_path: &str,
+        worktree_path_template: &str,
+        branch: &str,
+    ) -> Result<PathBuf> {
+        let path = self.worktree_path_for_branch(root_path, worktree_path_template, branch)?;
         let output = Command::new("git")
             .args([
                 "worktree",
@@ -210,9 +225,13 @@ impl zed::Extension for GitWorktreeExtension {
                     return Err("no option selected".to_string());
                 };
                 let Some(worktree) = worktree else {
-                    return Err("no worktree found".to_string());
+                    return Err("no workspace found".to_string());
                 };
-                let path = self.git_worktree_add(worktree.root_path().as_ref(), branch)?;
+                let path = self.git_worktree_add(
+                    worktree.root_path().as_ref(),
+                    "../${repo}-${branch}",
+                    branch,
+                )?;
                 self.zed_open(&path)?;
 
                 let text = format!("Worktree `{branch}` added.");
